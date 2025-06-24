@@ -1,28 +1,96 @@
-import React from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "prism-react-renderer";
 import { sendToEchoBrain } from "./services/echoBrainAPI";
 
-export default function App() {
-  // ===== ORIGINAL STATE HOOKS (UNCHANGED) =====
-  const [input, setInput] = React.useState("");
-  const [messages, setMessages] = React.useState([]);
-  const [loopCount, setLoopCount] = React.useState(0);
-  const [emotionalState, setEmotionalState] = React.useState(50);
-  const [mode, setMode] = React.useState("reflective");
-  const [isLoading, setIsLoading] = React.useState(false);
-  const messagesEndRef = React.useRef(null);
+// Toast Component
+function Toast({ message, show }) {
+  return (
+    <div
+      className={`fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 ${
+        show ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      {message}
+    </div>
+  );
+}
 
-  // ===== ORIGINAL EFFECTS (UNCHANGED) =====
-  React.useEffect(() => {
+// Long Press Hook
+function useLongPress(callback, delay = 500) {
+  const pressTimer = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+    };
+  }, []);
+
+  const startPress = useCallback(() => {
+    pressTimer.current = setTimeout(callback, delay);
+  }, [callback, delay]);
+
+  const cancelPress = useCallback(() => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+
+  return {
+    onMouseDown: startPress,
+    onMouseUp: cancelPress,
+    onMouseLeave: cancelPress,
+    onTouchStart: startPress,
+    onTouchEnd: cancelPress,
+  };
+}
+
+export default function App() {
+  // ===== STATE HOOKS =====
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [loopCount, setLoopCount] = useState(0);
+  const [emotionalState, setEmotionalState] = useState(50);
+  const [mode, setMode] = useState("reflective");
+  const [isLoading, setIsLoading] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: "" });
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const messagesEndRef = useRef(null);
+  const useLongPressHook = (text) =>
+    useLongPress(() => copyToClipboard(text), 500);
+
+  // ===== EFFECTS =====
+  useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    const main = document.querySelector("main");
+    const handleScroll = () => {
+      if (main.scrollHeight - main.scrollTop - main.clientHeight > 100)
+        setShowScrollButton(true);
+      else setShowScrollButton(false);
+    };
+
+    main.addEventListener("scroll", handleScroll);
+    return () => main.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // ===== HELPERS =====
   function scrollToBottom() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // ===== ORIGINAL HANDLERS (UNCHANGED) =====
+  function formatTime(date) {
+    return new Date(date).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  // ===== HANDLERS =====
   function handleInputChange(e) {
     setInput(e.target.value);
   }
@@ -36,15 +104,12 @@ export default function App() {
     addMessage(`🧠 Switched to ${newMode} mode.`, "system");
   }
 
-  // ===== ORIGINAL API LOGIC (UNCHANGED) =====
   async function handleSubmit() {
     if (!input.trim()) return;
-
     const userMessage = input.trim();
     setInput("");
     setMessages([...messages, { text: userMessage, sender: "user" }]);
     setIsLoading(true);
-
     try {
       const response = await generateEchoResponse(userMessage);
       await simulateTypewriter(response);
@@ -62,7 +127,7 @@ export default function App() {
     }
   }
 
-  // ===== ORIGINAL HELPER FUNCTIONS (UNCHANGED) =====
+  // ===== API LOGIC =====
   async function generateEchoResponse(userMessage) {
     const context = {
       mode,
@@ -71,14 +136,13 @@ export default function App() {
       messageHistory: messages,
       memoryTags: getMemoryTags(),
     };
-
     const apiResponse = await sendToEchoBrain(userMessage, context);
     let response = apiResponse;
     const pressure = calculatePressure(userMessage);
     const isEmotional = emotionalState > 75;
     const loopTriggered = loopCount >= 3 && loopCount < 5;
-
     const hasRepetition = checkForRepetition(userMessage);
+
     if (hasRepetition) {
       setLoopCount((prev) => prev + 1);
       response = `[Loop ${loopCount + 1}] ${response}`;
@@ -99,25 +163,27 @@ export default function App() {
     }
 
     if ((isEmotional || loopTriggered) && pressure > 60) {
-      response = `${generateSparkInsight()}\n\n${response}`;
+      response = `${generateSparkInsight()}\n${response}`;
     }
 
     if (userMessage.toLowerCase().includes("remember")) {
-      response += `\n\n📌 Remembering: "${userMessage}"`;
+      response += `\n📌 Remembering: "${userMessage}"`;
     }
 
     if (userMessage.toLowerCase().includes("forget")) {
-      response +=
-        "\n\n🗑️ I've cleared my temporary memory of our conversation.";
+      response += "\n🗑️ I've cleared my temporary memory of our conversation.";
     }
 
     return response;
   }
 
+  // ===== UTILITIES =====
   function getMemoryTags() {
     return messages
       .filter((msg) => msg.text.includes("Remembering:"))
-      .map((msg) => msg.text.split("Remembering: ")[1].replace(/"/g, ""));
+      .map(
+        (msg) => msg.text.split("Remembering: ")[1]?.replace(/"/g, "") || ""
+      );
   }
 
   function calculatePressure(message) {
@@ -140,7 +206,7 @@ export default function App() {
       '"If this emotion had a soundtrack, what would it play?"',
       '"What does your shadow self want you to know right now?"',
     ];
-    return sparkIdeas[Math.floor(Math.random() * sparkIdeas.length)] + " \n\n";
+    return sparkIdeas[Math.floor(Math.random() * sparkIdeas.length)] + "\n";
   }
 
   async function simulateTypewriter(fullText) {
@@ -170,7 +236,15 @@ export default function App() {
     setMessages((prev) => [...prev, { text, sender }]);
   }
 
-  // ===== NEW MARKDOWN RENDERER =====
+  // ===== COPY FUNCTIONALITY =====
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setToast({ show: true, message: "Copied to clipboard!" });
+      setTimeout(() => setToast({ show: false, message: "" }), 2000);
+    });
+  };
+
+  // ===== MARKDOWN RENDERER =====
   function MessageContent({ text, sender }) {
     return (
       <ReactMarkdown
@@ -221,11 +295,20 @@ export default function App() {
     );
   }
 
-  // ===== RENDER (ORIGINAL STRUCTURE WITH MARKDOWN SUPPORT) =====
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-      {/* Header (unchanged) */}
-      <header className="p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10">
+    <div
+      className={`flex flex-col h-screen ${
+        darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
+      }`}
+    >
+      {/* Header */}
+      <header
+        className={`p-4 border-b ${
+          darkMode
+            ? "border-gray-700 bg-gray-800/50"
+            : "border-gray-200 bg-white/50"
+        } backdrop-blur-sm sticky top-0 z-10`}
+      >
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
             🧠 Echo Brain v4.2
@@ -244,17 +327,61 @@ export default function App() {
                           ? "blue"
                           : "pink"
                       }-600`
-                    : "bg-gray-700"
+                    : darkMode
+                    ? "bg-gray-700"
+                    : "bg-gray-200"
                 }`}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
               </button>
             ))}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="ml-2 p-1 rounded-full hover:bg-white/10 transition-colors"
+            >
+              {darkMode ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="5"></circle>
+                  <line x1="12" y1="1" x2="12" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="23"></line>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                  <line x1="1" y1="12" x2="3" y2="12"></line>
+                  <line x1="21" y1="12" x2="23" y2="12"></line>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+              )}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Chat messages (updated with Markdown) */}
+      {/* Chat Messages */}
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
         <div className="max-w-3xl mx-auto">
           <div className="space-y-4">
@@ -266,7 +393,7 @@ export default function App() {
                 }`}
               >
                 <div
-                  className={`max-w-[80%] p-3 rounded-2xl ${
+                  className={`relative max-w-[80%] p-3 rounded-2xl ${
                     msg.sender === "user"
                       ? "bg-gradient-to-r from-purple-600 to-pink-600 rounded-br-none"
                       : msg.sender === "echo_typing"
@@ -274,6 +401,16 @@ export default function App() {
                       : "bg-gray-800 rounded-bl-none"
                   }`}
                 >
+                  {msg.sender !== "user" && (
+                    <div className="absolute -left-8 top-3 w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center text-xs font-bold">
+                      A
+                    </div>
+                  )}
+                  {msg.sender === "user" && (
+                    <div className="absolute -left-8 top-3 w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-bold">
+                      U
+                    </div>
+                  )}
                   <div
                     className={`prose prose-invert max-w-none ${
                       msg.sender === "user" ? "text-white" : "text-gray-200"
@@ -281,6 +418,42 @@ export default function App() {
                   >
                     <MessageContent text={msg.text} sender={msg.sender} />
                   </div>
+                  <span className="text-xs opacity-60 mt-1 block text-right">
+                    {formatTime(msg.timestamp || new Date())}
+                  </span>
+                  {msg.sender !== "user" && (
+                    <button
+                      onClick={() => copyToClipboard(msg.text)}
+                      //{...useLongPressHook(msg.text)}
+                      className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10 transition-colors duration-200 group"
+                      title="Copy to clipboard"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                        ></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      <span className="hidden group-hover:block absolute top-8 right-0 bg-gray-700 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                        Copy to clipboard
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -294,50 +467,131 @@ export default function App() {
         </div>
       </main>
 
-      {/* Footer (unchanged) */}
-      <footer className="p-4 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm sticky bottom-0">
+      {/* Scroll to Bottom Button */}
+      {showScrollButton && (
+        <button
+          onClick={scrollToBottom}
+          className="fixed bottom-20 right-4 p-2 bg-purple-600 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="17 11 12 6 7 11"></polyline>
+            <polyline points="17 18 12 13 7 18"></polyline>
+          </svg>
+        </button>
+      )}
+
+      {/* Footer */}
+      <footer
+        className={`p-4 border-t ${
+          darkMode
+            ? "border-gray-700 bg-gray-800/50"
+            : "border-gray-200 bg-white/50"
+        } backdrop-blur-sm sticky bottom-0`}
+      >
         <div className="container mx-auto max-w-3xl">
-          <div className="flex items-center space-x-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
+          <div className="flex flex-col space-y-3">
+            {/* Input Area */}
+            <div className="relative">
+              <textarea
                 value={input}
                 onChange={handleInputChange}
-                onKeyDown={handleKeyPress}
-                placeholder="Type your reflection..."
-                className="w-full p-3 pr-12 bg-gray-900 border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-gray-500"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder="Type your reflection... Try: 'Explain quantum physics' or 'How do I feel better today?'"
+                className={`w-full p-3 pr-12 ${
+                  darkMode
+                    ? "bg-gray-900 border-gray-700"
+                    : "bg-gray-100 border-gray-300"
+                } border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-gray-500 resize-none min-h-[60px] max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-600 scrollbar-track-gray-800`}
+                rows={1}
+                style={{
+                  height: "auto",
+                  minHeight: "60px",
+                  maxHeight: "200px",
+                }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                  }
+                }}
               />
               <button
                 onClick={handleSubmit}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                disabled={isLoading}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full ${
+                  isLoading
+                    ? "text-gray-500"
+                    : "text-purple-400 hover:text-white"
+                } transition-colors`}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
+                  width="24"
+                  height="24"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className={`${isLoading ? "animate-spin" : ""}`}
                 >
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  {isLoading ? (
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      strokeWidth="3"
+                      strokeDasharray="42"
+                      strokeDashoffset="16"
+                    />
+                  ) : (
+                    <>
+                      <line x1="22" y1="2" x2="11" y2="13"></line>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </>
+                  )}
                 </svg>
               </button>
             </div>
-          </div>
 
-          <div className="mt-3 flex justify-between text-xs text-gray-500">
-            <div>
-              Mode: <span className="capitalize">{mode}</span>
+            {/* Counter and Mode Info */}
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500">
+                {input.length > 0 && (
+                  <span className={input.length > 2000 ? "text-red-400" : ""}>
+                    {input.length}/2000
+                  </span>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <div className="flex space-x-1 text-xs text-gray-500">
+                  <span>Mode:</span>
+                  <span className="capitalize">{mode}</span>
+                </div>
+              </div>
             </div>
-            <div>Loop: {loopCount}</div>
-            <div>Emotion: {Math.round(emotionalState)}%</div>
           </div>
         </div>
       </footer>
+
+      {/* Toast Notification */}
+      <Toast message={toast.message} show={toast.show} />
     </div>
   );
 }

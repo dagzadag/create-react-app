@@ -297,7 +297,7 @@ merge both models and than activate it, your role is to play a therapist that us
             : context.mode === "creative"
             ? 0.8
             : 0.5,
-        max_tokens: 300,
+        max_tokens: 5000,
       }),
     });
 
