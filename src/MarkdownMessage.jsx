@@ -1,0 +1,36 @@
+import React from "react";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
+export default function MarkdownMessage({ content }) {
+  return (
+    <ReactMarkdown
+      components={{
+        code({ inline, className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || "");
+          return !inline && match ? (
+            <SyntaxHighlighter
+              style={oneDark}
+              language={match[1]}
+              PreTag="div"
+              customStyle={{ padding: "1rem", borderRadius: "0.5rem" }}
+              {...props}
+            >
+              {String(children).replace(/\n$/, "")}
+            </SyntaxHighlighter>
+          ) : (
+            <code className="bg-gray-700 px-1 py-0.5 rounded text-sm">
+              {children}
+            </code>
+          );
+        },
+        p({ children }) {
+          return <p className="mb-2 leading-relaxed">{children}</p>;
+        },
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}

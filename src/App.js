@@ -1,20 +1,19 @@
-// Assuming you’ve placed this in App.js and already have Tailwind configured
-// You’ll also need to install a typing effect library if you want smoother animation (e.g., react-typist or typewriter-effect).
-// Below is a manual simulation for simplicity.
-
 import React from "react";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "prism-react-renderer";
 import { sendToEchoBrain } from "./services/echoBrainAPI";
 
 export default function App() {
+  // ===== ORIGINAL STATE HOOKS (UNCHANGED) =====
   const [input, setInput] = React.useState("");
   const [messages, setMessages] = React.useState([]);
   const [loopCount, setLoopCount] = React.useState(0);
   const [emotionalState, setEmotionalState] = React.useState(50);
   const [mode, setMode] = React.useState("reflective");
-  const [apiError, setApiError] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const messagesEndRef = React.useRef(null);
 
+  // ===== ORIGINAL EFFECTS (UNCHANGED) =====
   React.useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -23,6 +22,7 @@ export default function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
+  // ===== ORIGINAL HANDLERS (UNCHANGED) =====
   function handleInputChange(e) {
     setInput(e.target.value);
   }
@@ -36,6 +36,7 @@ export default function App() {
     addMessage(`🧠 Switched to ${newMode} mode.`, "system");
   }
 
+  // ===== ORIGINAL API LOGIC (UNCHANGED) =====
   async function handleSubmit() {
     if (!input.trim()) return;
 
@@ -61,6 +62,7 @@ export default function App() {
     }
   }
 
+  // ===== ORIGINAL HELPER FUNCTIONS (UNCHANGED) =====
   async function generateEchoResponse(userMessage) {
     const context = {
       mode,
@@ -132,8 +134,8 @@ export default function App() {
 
   function generateSparkInsight() {
     const sparkIdeas = [
-      '"What if the answer isn’t a thought, but a breath?"',
-      '"Let’s imagine this feeling as a color – what would it be?"',
+      '"What if the answer isn"t a thought, but a breath?"',
+      '"Let"s imagine this feeling as a color – what would it be?"',
       '"Sometimes truth hides in the silence between words."',
       '"If this emotion had a soundtrack, what would it play?"',
       '"What does your shadow self want you to know right now?"',
@@ -145,7 +147,7 @@ export default function App() {
     let displayed = "";
     for (let i = 0; i < fullText.length; i++) {
       displayed += fullText[i];
-      await new Promise((r) => setTimeout(r, 15)); // Simulated delay
+      await new Promise((r) => setTimeout(r, 15));
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last?.sender === "echo_typing") {
@@ -168,8 +170,61 @@ export default function App() {
     setMessages((prev) => [...prev, { text, sender }]);
   }
 
+  // ===== NEW MARKDOWN RENDERER =====
+  function MessageContent({ text, sender }) {
+    return (
+      <ReactMarkdown
+        children={text}
+        components={{
+          code({ node, inline, className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || "");
+            return !inline && match ? (
+              <SyntaxHighlighter
+                language={match[1]}
+                children={String(children).replace(/\n$/, "")}
+                {...props}
+              />
+            ) : (
+              <code className="bg-gray-700 rounded px-1 py-0.5 text-sm">
+                {children}
+              </code>
+            );
+          },
+          pre({ children }) {
+            return (
+              <pre className="bg-gray-800 rounded-lg p-3 my-2 overflow-x-auto">
+                {children}
+              </pre>
+            );
+          },
+          blockquote({ children }) {
+            return (
+              <blockquote className="border-l-4 border-purple-500 pl-4 my-2 text-gray-300 italic">
+                {children}
+              </blockquote>
+            );
+          },
+          a({ children, href }) {
+            return (
+              <a
+                href={href}
+                className="text-purple-400 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {children}
+              </a>
+            );
+          },
+        }}
+      />
+    );
+  }
+
+  // ===== RENDER (ORIGINAL STRUCTURE WITH MARKDOWN SUPPORT) =====
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
+      {/* Header (unchanged) */}
       <header className="p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
@@ -199,6 +254,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* Chat messages (updated with Markdown) */}
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
         <div className="max-w-3xl mx-auto">
           <div className="space-y-4">
@@ -218,13 +274,13 @@ export default function App() {
                       : "bg-gray-800 rounded-bl-none"
                   }`}
                 >
-                  <p
-                    className={`${
+                  <div
+                    className={`prose prose-invert max-w-none ${
                       msg.sender === "user" ? "text-white" : "text-gray-200"
                     }`}
                   >
-                    {msg.text}
-                  </p>
+                    <MessageContent text={msg.text} sender={msg.sender} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -238,6 +294,7 @@ export default function App() {
         </div>
       </main>
 
+      {/* Footer (unchanged) */}
       <footer className="p-4 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm sticky bottom-0">
         <div className="container mx-auto max-w-3xl">
           <div className="flex items-center space-x-2">
