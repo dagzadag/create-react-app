@@ -46,6 +46,97 @@ function useLongPress(callback, delay = 500) {
   };
 }
 
+// Syntax Highlighting Themes
+const darkTheme = {
+  plain: {
+    color: "#E5E7EB",
+    backgroundColor: "#1E293B",
+  },
+  styles: [
+    {
+      types: ["comment", "prolog", "doctype", "cdata"],
+      style: {
+        color: "#6B7280",
+      },
+    },
+    {
+      types: ["punctuation"],
+      style: {
+        color: "#E5E7EB",
+      },
+    },
+    {
+      types: ["property", "tag", "boolean", "number", "constant", "symbol"],
+      style: {
+        color: "#F472B6",
+      },
+    },
+    {
+      types: ["selector", "attr-name", "string", "char", "builtin"],
+      style: {
+        color: "#34D399",
+      },
+    },
+    {
+      types: ["operator", "entity", "url"],
+      style: {
+        color: "#93C5FD",
+      },
+    },
+    {
+      types: ["keyword", "variable"],
+      style: {
+        color: "#818CF8",
+      },
+    },
+  ],
+};
+
+const lightTheme = {
+  plain: {
+    color: "#374151",
+    backgroundColor: "#F3F4F6",
+  },
+  styles: [
+    {
+      types: ["comment", "prolog", "doctype", "cdata"],
+      style: {
+        color: "#9CA3AF",
+      },
+    },
+    {
+      types: ["punctuation"],
+      style: {
+        color: "#374151",
+      },
+    },
+    {
+      types: ["property", "tag", "boolean", "number", "constant", "symbol"],
+      style: {
+        color: "#EC4899",
+      },
+    },
+    {
+      types: ["selector", "attr-name", "string", "char", "builtin"],
+      style: {
+        color: "#10B981",
+      },
+    },
+    {
+      types: ["operator", "entity", "url"],
+      style: {
+        color: "#3B82F6",
+      },
+    },
+    {
+      types: ["keyword", "variable"],
+      style: {
+        color: "#6366F1",
+      },
+    },
+  ],
+};
+
 export default function App() {
   // ===== STATE HOOKS =====
   const [input, setInput] = useState("");
@@ -96,7 +187,10 @@ export default function App() {
   }
 
   function handleKeyPress(e) {
-    if (e.key === "Enter") handleSubmit();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
   }
 
   function handleModeChange(newMode) {
@@ -112,7 +206,8 @@ export default function App() {
     setIsLoading(true);
     try {
       const response = await generateEchoResponse(userMessage);
-      await simulateTypewriter(response);
+      // Remove the simulateTypewriter call and add the response directly
+      setMessages((prev) => [...prev, { text: response, sender: "echo" }]);
     } catch (error) {
       console.error("Error generating response:", error);
       setMessages((prev) => [
@@ -126,6 +221,8 @@ export default function App() {
       setIsLoading(false);
     }
   }
+
+  // You can also remove the entire simulateTypewriter function since it won't be used anymore
 
   // ===== API LOGIC =====
   async function generateEchoResponse(userMessage) {
@@ -248,53 +345,49 @@ export default function App() {
   function MessageContent({ text, sender }) {
     return (
       <ReactMarkdown
-        children={text}
         components={{
           code({ node, inline, className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || "");
-            return !inline && match ? (
+            return !inline ? (
               <SyntaxHighlighter
-                language={match[1]}
-                children={String(children).replace(/\n$/, "")}
+                language={match?.[1] || "text"}
+                style={darkMode ? darkTheme : lightTheme}
+                PreTag="div"
+                customStyle={{
+                  margin: 0,
+                  padding: "1rem",
+                  backgroundColor: darkMode ? "#1E293B" : "#F1F5F9",
+                  fontSize: "0.9rem",
+                  borderRadius: "0.5rem",
+                }}
+                showLineNumbers={true}
+                wrapLines={true}
                 {...props}
-              />
+              >
+                {String(children).replace(/\n$/, "")}
+              </SyntaxHighlighter>
             ) : (
-              <code className="bg-gray-700 rounded px-1 py-0.5 text-sm">
+              <code
+                className={`px-1 py-0.5 rounded text-sm ${
+                  darkMode
+                    ? "bg-gray-700 text-gray-100"
+                    : "bg-gray-200 text-gray-800"
+                }`}
+                {...props}
+              >
                 {children}
               </code>
             );
           },
-          pre({ children }) {
-            return (
-              <pre className="bg-gray-800 rounded-lg p-3 my-2 overflow-x-auto">
-                {children}
-              </pre>
-            );
-          },
-          blockquote({ children }) {
-            return (
-              <blockquote className="border-l-4 border-purple-500 pl-4 my-2 text-gray-300 italic">
-                {children}
-              </blockquote>
-            );
-          },
-          a({ children, href }) {
-            return (
-              <a
-                href={href}
-                className="text-purple-400 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {children}
-              </a>
-            );
+          pre({ node, children, ...props }) {
+            return <pre {...props}>{children}</pre>;
           },
         }}
-      />
+      >
+        {text}
+      </ReactMarkdown>
     );
   }
-
   return (
     <div
       className={`flex flex-col h-screen ${
@@ -311,7 +404,7 @@ export default function App() {
       >
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-            🧠 Echo Brain v4.2
+            🧠 Echo Brain
           </h1>
           <div className="flex space-x-2">
             {["reflective", "logical", "creative"].map((m) => (
@@ -320,13 +413,13 @@ export default function App() {
                 onClick={() => handleModeChange(m)}
                 className={`px-3 py-1 rounded-full text-sm ${
                   mode === m
-                    ? `bg-${
+                    ? `${
                         m === "reflective"
-                          ? "purple"
+                          ? "bg-purple-600"
                           : m === "logical"
-                          ? "blue"
-                          : "pink"
-                      }-600`
+                          ? "bg-blue-600"
+                          : "bg-pink-600"
+                      }`
                     : darkMode
                     ? "bg-gray-700"
                     : "bg-gray-200"
@@ -424,7 +517,6 @@ export default function App() {
                   {msg.sender !== "user" && (
                     <button
                       onClick={() => copyToClipboard(msg.text)}
-                      //{...useLongPressHook(msg.text)}
                       className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10 transition-colors duration-200 group"
                       title="Copy to clipboard"
                     >
@@ -505,12 +597,7 @@ export default function App() {
               <textarea
                 value={input}
                 onChange={handleInputChange}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
+                onKeyDown={handleKeyPress}
                 placeholder="Type your reflection... Try: 'Explain quantum physics' or 'How do I feel better today?'"
                 className={`w-full p-3 pr-12 ${
                   darkMode
