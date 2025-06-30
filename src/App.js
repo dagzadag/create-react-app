@@ -270,7 +270,13 @@ export default function App() {
     setIsLoading(true);
     try {
       const response = await generateEchoResponse(userMessage.text);
-      await simulateTypewriter(response);
+      const aiMessage = {
+        text: response,
+        sender: "echo",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      await saveMessage(currentChatId, aiMessage);
     } catch (error) {
       console.error("Error generating response:", error);
       const errorMessage = {
