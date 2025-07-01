@@ -10,6 +10,15 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -25,15 +34,32 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+
+// Auth functions
+const provider = new GoogleAuthProvider();
+export function signInWithGoogle() {
+  return signInWithPopup(auth, provider);
+}
+export function signOutUser() {
+  return signOut(auth);
+}
+export function signUpWithEmail(email, password) {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+export function signInWithEmail(email, password) {
+  return signInWithEmailAndPassword(auth, email, password);
+}
+export { auth, onAuthStateChanged };
 
 export { app, db };
 
-export async function fetchChats(currentChatId, loadMessages) {
+// User-scoped chat functions
+export async function fetchChats(userId) {
   try {
-    const chatsRef = collection(db, "chats");
+    const chatsRef = collection(db, "users", userId, "chats");
     const q = query(chatsRef, orderBy("updatedAt", "desc"));
     const querySnapshot = await getDocs(q);
-
     const chats = [];
     querySnapshot.forEach((doc) => {
       chats.push({
@@ -41,10 +67,6 @@ export async function fetchChats(currentChatId, loadMessages) {
         ...doc.data(),
       });
     });
-
-    if (chats.length > 0 && !currentChatId && loadMessages) {
-      loadMessages(chats[0].id);
-    }
     return chats;
   } catch (error) {
     console.error("Error fetching chats:", error);
@@ -52,17 +74,22 @@ export async function fetchChats(currentChatId, loadMessages) {
   }
 }
 
-export async function loadMessages(chatId) {
+export async function loadMessages(userId, chatId) {
   try {
-    const messagesRef = collection(db, "chats", chatId, "messages");
+    const messagesRef = collection(
+      db,
+      "users",
+      userId,
+      "chats",
+      chatId,
+      "messages"
+    );
     const q = query(messagesRef, orderBy("timestamp"));
     const querySnapshot = await getDocs(q);
-
     const loadedMessages = [];
     querySnapshot.forEach((doc) => {
       loadedMessages.push(doc.data());
     });
-
     return loadedMessages;
   } catch (error) {
     console.error("Error loading messages:", error);
@@ -70,16 +97,22 @@ export async function loadMessages(chatId) {
   }
 }
 
-export async function saveMessage(chatId, message) {
+export async function saveMessage(userId, chatId, message) {
   try {
-    const messagesRef = collection(db, "chats", chatId, "messages");
+    const messagesRef = collection(
+      db,
+      "users",
+      userId,
+      "chats",
+      chatId,
+      "messages"
+    );
     await setDoc(doc(messagesRef), {
       ...message,
       timestamp: serverTimestamp(),
     });
-
     // Update chat's last message and timestamp
-    const chatRef = doc(db, "chats", chatId);
+    const chatRef = doc(db, "users", userId, "chats", chatId);
     await updateDoc(chatRef, {
       preview: message.text.slice(0, 50),
       updatedAt: serverTimestamp(),
@@ -89,36 +122,20 @@ export async function saveMessage(chatId, message) {
   }
 }
 
-export async function createNewChat(
-  chatHistory,
-  setChatHistory,
-  setCurrentChatId,
-  setMessages,
-  setInput,
-  setSidebarOpen
-) {
+export async function createNewChat(userId) {
   try {
-    const newChatRef = doc(collection(db, "chats"));
+    const newChatRef = doc(collection(db, "users", userId, "chats"));
     const newChat = {
       title: "New conversation",
       preview: "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
-
     await setDoc(newChatRef, newChat);
-
     const newChatWithId = {
       id: newChatRef.id,
       ...newChat,
     };
-
-    if (setChatHistory) setChatHistory([newChatWithId, ...(chatHistory || [])]);
-    if (setCurrentChatId) setCurrentChatId(newChatRef.id);
-    if (setMessages) setMessages([]);
-    if (setInput) setInput("");
-    if (setSidebarOpen) setSidebarOpen(false);
-
     return newChatRef.id;
   } catch (error) {
     console.error("Error creating new chat:", error);
