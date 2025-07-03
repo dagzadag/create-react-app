@@ -38,7 +38,7 @@ export default function ChatWindow({
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 md:p-4 px-5 md:px-4 space-y-5 md:space-y-4 min-h-0">
         {messages.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-800/60 to-pink-800/60 flex items-center justify-center shadow-lg border border-purple-700/30">

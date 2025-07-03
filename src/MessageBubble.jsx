@@ -48,7 +48,7 @@ export default function MessageBubble({
     <div className={`flex justify-${isUser ? "end" : "start"}`}>
       {/* Message Bubble */}
       <div
-        className={`max-w-[80%] p-4 rounded-2xl shadow-sm transition-all duration-200 ${
+        className={`max-w-[85%] md:max-w-[80%] p-4 md:p-4 px-5 py-4 md:px-4 md:py-4 rounded-2xl shadow-sm transition-all duration-200 ${
           isUser
             ? "bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-br-md border border-pink-500/30"
             : "bg-purple-800/60 backdrop-blur-sm text-purple-100 rounded-bl-md border border-purple-700/30"
@@ -64,7 +64,7 @@ export default function MessageBubble({
 
         {/* Timestamp */}
         <div
-          className={`flex items-center justify-between mt-2 ${
+          className={`flex items-center justify-between mt-3 md:mt-2 ${
             isUser ? "text-white/70" : "text-purple-300"
           }`}
         >
@@ -74,19 +74,20 @@ export default function MessageBubble({
           {isEcho && (
             <button
               onClick={() => copyToClipboard(msg.text)}
-              className="ml-2 p-1 rounded-full hover:bg-purple-700/40 transition-colors duration-200"
+              className="ml-3 md:ml-2 p-1.5 md:p-1 rounded-full hover:bg-purple-700/40 transition-colors duration-200"
               title="Copy to clipboard"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                className="md:w-[14px] md:h-[14px]"
               >
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
