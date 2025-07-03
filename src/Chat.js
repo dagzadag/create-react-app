@@ -20,6 +20,14 @@ import {
 import { sendToEchoBrain } from "./services/echoBrainAPI";
 import LoginPage from "./LoginPage";
 import Cookies from "js-cookie";
+import {
+  doc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
+import { db } from "./services/firebase";
 
 export default function Chat() {
   // ===== STATE HOOKS =====
@@ -29,7 +37,7 @@ export default function Chat() {
   const [emotionalState, setEmotionalState] = useState(50);
   const [mode, setMode] = useState("reflective");
   const [isLoading, setIsLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "" });
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -125,6 +133,63 @@ export default function Chat() {
     setSidebarOpen(false);
     return newChatId;
   };
+
+  const updateChatTitleCallback = async (chatId, newTitle) => {
+    if (!user) return;
+    // Update the chat title in Firebase
+    const chatRef = doc(db, "users", user.uid, "chats", chatId);
+    await updateDoc(chatRef, { title: newTitle });
+    // Refresh the chat list
+    await fetchChatsCallback();
+  };
+
+  const deleteChatCallback = async (chatId) => {
+    if (!user) return;
+    // Delete the chat and all its messages
+    const chatRef = doc(db, "users", user.uid, "chats", chatId);
+    const messagesRef = collection(
+      db,
+      "users",
+      user.uid,
+      "chats",
+      chatId,
+      "messages"
+    );
+
+    // Delete all messages first
+    const messagesSnapshot = await getDocs(messagesRef);
+    const deletePromises = messagesSnapshot.docs.map((doc) =>
+      deleteDoc(doc.ref)
+    );
+    await Promise.all(deletePromises);
+
+    // Delete the chat document
+    await deleteDoc(chatRef);
+
+    // If the deleted chat was the current one, select the first available chat or create a new one
+    if (currentChatId === chatId) {
+      const remainingChats = chatHistory.filter((chat) => chat.id !== chatId);
+      if (remainingChats.length > 0) {
+        setCurrentChatId(remainingChats[0].id);
+        await loadMessagesCallback(remainingChats[0].id);
+      } else {
+        setCurrentChatId(null);
+        setMessages([]);
+        await createNewChatCallback();
+      }
+    }
+
+    // Refresh the chat list
+    await fetchChatsCallback();
+  };
+
+  // Automatically start a new chat after login/signup if no chats exist
+  useEffect(() => {
+    if (user && !loadingChats && chatHistory.length === 0) {
+      createNewChatCallback();
+    }
+    // eslint-disable-next-line
+  }, [user, loadingChats, chatHistory.length]);
 
   // ===== EFFECTS =====
   useEffect(() => {
@@ -310,11 +375,13 @@ export default function Chat() {
   // ===== RENDER =====
   if (!showChat) {
     return (
-      <LoginPage
-        onLoginWithEmail={handleLoginWithEmail}
-        onSignup={handleSignup}
-        error={authError}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center p-4">
+        <LoginPage
+          onLoginWithEmail={handleLoginWithEmail}
+          onSignup={handleSignup}
+          error={authError}
+        />
+      </div>
     );
   }
 
@@ -323,42 +390,39 @@ export default function Chat() {
     sidebarOpen && typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <div
-      className={`flex h-screen ${
-        darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
-      }`}
-    >
+    <div className="flex h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 text-gray-100 font-sans">
       {/* Mobile Sidebar Toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className={`md:hidden fixed z-20 top-4 left-4 p-2 rounded-full ${
-          darkMode ? "bg-gray-800" : "bg-gray-200"
-        }`}
+        className="md:hidden fixed z-30 top-4 left-4 p-3 rounded-full bg-purple-800/80 shadow-lg hover:bg-purple-700/90 transition-all duration-200 backdrop-blur-sm border border-purple-600/30"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
+          width="20"
+          height="20"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          className="text-purple-200"
         >
           <line x1="3" y1="12" x2="21" y2="12"></line>
           <line x1="3" y1="6" x2="21" y2="6"></line>
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
+
       {/* Sidebar Overlay for mobile */}
       {showSidebarOverlay && (
         <div
-          className="fixed inset-0 bg-black/40 z-10 md:hidden"
+          className="fixed inset-0 bg-black/40 z-20 md:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
           aria-label="Close sidebar overlay"
         />
       )}
+
       {/* Sidebar */}
       <Sidebar
         chatHistory={chatHistory}
@@ -369,45 +433,66 @@ export default function Chat() {
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         darkMode={darkMode}
+        user={user}
+        onUpdateChatTitle={updateChatTitleCallback}
+        onDeleteChat={deleteChatCallback}
       />
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex justify-between items-center">
-          <Header
-            mode={mode}
-            onModeChange={handleModeChange}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
-          />
-          <button
-            onClick={handleLogout}
-            className="mr-6 px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-400 text-white rounded-xl shadow hover:scale-105 transition-all"
-          >
-            Logout
-          </button>
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-purple-900/80 backdrop-blur-xl shadow-lg border-b border-purple-700/30 flex-shrink-0">
+          <div className="flex justify-between items-center px-6 py-4">
+            <Header
+              mode={mode}
+              onModeChange={handleModeChange}
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+              user={user}
+            />
+            <button
+              onClick={handleLogout}
+              className="px-6 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-full font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 border border-pink-500/30"
+            >
+              Logout
+            </button>
+          </div>
         </div>
-        <ChatWindow
-          messages={messages}
-          isLoading={isLoading}
-          darkMode={darkMode}
-          copyToClipboard={copyToClipboard}
-          formatTime={formatTime}
-          messagesEndRef={messagesEndRef}
-          showScrollButton={showScrollButton}
-          scrollToBottom={() => scrollToBottom(messagesEndRef)}
-        />
-        <Footer
-          input={input}
-          onInputChange={handleInputChange}
-          onInputKeyDown={handleInputKeyDown}
-          onSubmit={handleSubmit}
-          isLoading={isLoading}
-          currentChatId={currentChatId}
-          darkMode={darkMode}
-          setToast={setToast}
-          mode={mode}
-        />
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col p-4 md:p-8 min-h-0">
+          <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col min-h-0">
+            <div className="flex-1 bg-purple-800/40 backdrop-blur-sm rounded-3xl shadow-xl p-6 md:p-8 flex flex-col min-h-0 border border-purple-700/30">
+              <ChatWindow
+                messages={messages}
+                isLoading={isLoading}
+                darkMode={darkMode}
+                copyToClipboard={copyToClipboard}
+                formatTime={formatTime}
+                messagesEndRef={messagesEndRef}
+                showScrollButton={showScrollButton}
+                scrollToBottom={() => scrollToBottom(messagesEndRef)}
+              />
+            </div>
+
+            {/* Input Area */}
+            <div className="mt-6 flex-shrink-0">
+              <Footer
+                input={input}
+                onInputChange={handleInputChange}
+                onInputKeyDown={handleInputKeyDown}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+                currentChatId={currentChatId}
+                darkMode={darkMode}
+                setToast={setToast}
+                mode={mode}
+              />
+            </div>
+          </div>
+        </div>
       </div>
+
       <Toast message={toast.message} show={toast.show} />
     </div>
   );

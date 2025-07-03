@@ -3,23 +3,23 @@ import MessageBubble from "./MessageBubble";
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center justify-center mt-8">
-      <div className="flex space-x-2">
+    <div className="flex items-center space-x-3 p-4 bg-purple-800/50 rounded-2xl shadow-sm border border-purple-700/30">
+      <div className="flex space-x-1">
         <span
-          className="block w-3 h-3 bg-pink-400 rounded-full animate-bounce"
+          className="block w-2 h-2 bg-pink-400 rounded-full animate-bounce"
           style={{ animationDelay: "0ms" }}
         ></span>
         <span
-          className="block w-3 h-3 bg-purple-400 rounded-full animate-bounce"
+          className="block w-2 h-2 bg-purple-400 rounded-full animate-bounce"
           style={{ animationDelay: "150ms" }}
         ></span>
         <span
-          className="block w-3 h-3 bg-yellow-400 rounded-full animate-bounce"
+          className="block w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
           style={{ animationDelay: "300ms" }}
         ></span>
       </div>
-      <span className="ml-3 text-base text-purple-400 font-semibold">
-        is typing...
+      <span className="text-sm text-purple-200 font-medium">
+        Echo Brain is thinking...
       </span>
     </div>
   );
@@ -36,48 +36,57 @@ export default function ChatWindow({
   scrollToBottom,
 }) {
   return (
-    <main className="flex-1 overflow-y-auto p-6 md:p-10 bg-gradient-to-br from-purple-50 via-pink-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
-      <div className="max-w-3xl mx-auto rounded-3xl shadow-xl bg-white/80 dark:bg-gray-900/80 p-6 md:p-10 min-h-[60vh] flex flex-col justify-end">
-        <div className="space-y-6">
-          {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full text-center py-20 animate-fade-in">
-              <div className="text-6xl mb-4">🌱</div>
-              <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+    <div className="flex-1 flex flex-col h-full">
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        {messages.length === 0 && !isLoading && (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-800/60 to-pink-800/60 flex items-center justify-center shadow-lg border border-purple-700/30">
+              <span className="text-4xl">🌱</span>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
                 Welcome to your safe space
               </h2>
-              <p className="text-gray-600 dark:text-gray-300 max-w-md text-lg">
+              <p className="text-purple-200 max-w-md text-sm leading-relaxed">
                 Start a new conversation or select an existing one from the
-                sidebar.
-                <br />I can help with reflection, emotional support, or creative
-                exploration.
+                sidebar. I'm here to help with reflection, emotional support, or
+                creative exploration.
               </p>
             </div>
-          )}
-
-          {messages.map((msg, index) => (
-            <div key={index} className="animate-fade-in">
-              <MessageBubble
-                msg={msg}
-                index={index}
-                darkMode={darkMode}
-                copyToClipboard={copyToClipboard}
-                formatTime={formatTime}
-              />
+            <div className="flex items-center space-x-2 text-xs text-purple-400">
+              <div className="w-2 h-2 bg-pink-400 rounded-full"></div>
+              <span>Your conversations are private and secure</span>
             </div>
-          ))}
-          {isLoading && <TypingIndicator />}
-          <div ref={messagesEndRef} />
-        </div>
+          </div>
+        )}
+
+        {messages.map((msg, index) => (
+          <div key={index} className="animate-fade-in">
+            <MessageBubble
+              msg={msg}
+              index={index}
+              darkMode={darkMode}
+              copyToClipboard={copyToClipboard}
+              formatTime={formatTime}
+            />
+          </div>
+        ))}
+
+        {isLoading && <TypingIndicator />}
+        <div ref={messagesEndRef} />
       </div>
+
+      {/* Scroll to Bottom Button */}
       {showScrollButton && (
         <button
           onClick={scrollToBottom}
-          className="fixed bottom-20 right-4 p-3 bg-gradient-to-r from-purple-400 to-pink-400 text-white rounded-full shadow-2xl hover:scale-110 transition-transform z-30 border-4 border-white/60 dark:border-gray-900/60"
+          className="fixed bottom-24 right-6 p-3 bg-purple-800/90 backdrop-blur-sm text-purple-200 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-200 border border-purple-600/30"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -90,6 +99,6 @@ export default function ChatWindow({
           </svg>
         </button>
       )}
-    </main>
+    </div>
   );
 }

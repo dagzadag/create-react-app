@@ -19,10 +19,13 @@ function MessageContent({ text, sender, darkMode }) {
               {...props}
             />
           ) : (
-            <code className={className} {...props}>
+            <code className="bg-purple-800/60 px-1.5 py-0.5 rounded text-sm font-mono text-purple-200 border border-purple-700/30">
               {children}
             </code>
           );
+        },
+        p({ children }) {
+          return <p className="mb-2 leading-relaxed">{children}</p>;
         },
       }}
     >
@@ -40,76 +43,57 @@ export default function MessageBubble({
 }) {
   const isUser = msg.sender === "user";
   const isEcho = msg.sender === "echo" || msg.sender === "echo_typing";
+
   return (
-    <div
-      key={index}
-      className={`flex items-end ${
-        isUser ? "justify-end" : "justify-start"
-      } animate-fade-in`}
-    >
-      {/* Avatar */}
+    <div className={`flex justify-${isUser ? "end" : "start"}`}>
+      {/* Message Bubble */}
       <div
-        className={`flex-shrink-0 ${isUser ? "order-2 ml-3" : "order-1 mr-3"}`}
-      >
-        <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg text-2xl ${
-            isUser
-              ? "bg-gradient-to-br from-blue-400 to-purple-400 text-white"
-              : "bg-gradient-to-br from-purple-400 to-pink-400 text-white"
-          }`}
-        >
-          {isUser ? "🧑" : "🧠"}
-        </div>
-      </div>
-      {/* Bubble */}
-      <div
-        className={`relative max-w-[80%] p-4 rounded-3xl shadow-xl font-sans transition-all duration-200 ${
+        className={`max-w-[80%] p-4 rounded-2xl shadow-sm transition-all duration-200 ${
           isUser
-            ? "bg-gradient-to-r from-purple-200 to-pink-200 text-gray-900 rounded-br-none"
-            : isEcho
-            ? "bg-gradient-to-r from-white/90 to-purple-100 dark:from-gray-800/90 dark:to-purple-900 text-gray-900 dark:text-gray-100 rounded-bl-none"
-            : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            ? "bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-br-md border border-pink-500/30"
+            : "bg-purple-800/60 backdrop-blur-sm text-purple-100 rounded-bl-md border border-purple-700/30"
         }`}
-        style={{
-          borderBottomRightRadius: isUser ? 0 : undefined,
-          borderBottomLeftRadius: isUser ? undefined : 0,
-        }}
       >
-        <div className="prose prose-invert max-w-none">
+        <div className="prose prose-sm max-w-none">
           <MessageContent
             text={msg.text}
             sender={msg.sender}
             darkMode={darkMode}
           />
         </div>
-        <span className="text-xs opacity-60 mt-2 block text-right font-mono">
-          {formatTime(msg.timestamp)}
-        </span>
-        {isEcho && (
-          <button
-            onClick={() => copyToClipboard(msg.text)}
-            className="absolute top-2 right-2 p-1 rounded-full bg-white/60 hover:bg-pink-200 transition-colors duration-200 group shadow-md"
-            title="Copy to clipboard"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+
+        {/* Timestamp */}
+        <div
+          className={`flex items-center justify-between mt-2 ${
+            isUser ? "text-white/70" : "text-purple-300"
+          }`}
+        >
+          <span className="text-xs font-mono">{formatTime(msg.timestamp)}</span>
+
+          {/* Copy Button for AI messages */}
+          {isEcho && (
+            <button
+              onClick={() => copyToClipboard(msg.text)}
+              className="ml-2 p-1 rounded-full hover:bg-purple-700/40 transition-colors duration-200"
+              title="Copy to clipboard"
             >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            <span className="hidden group-hover:block absolute top-8 right-0 bg-gray-700 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-              Copy to clipboard
-            </span>
-          </button>
-        )}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
